@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Insert title here</title>
+<script src="/puzzle/script/jquery-3.4.1.min.js"></script>
+</head>
+<body>
+	<h1>login</h1>
+	<a href="/puzzle/index.html">처음으로</a>
+	<table>
+		<tr>
+			<td>member_id</td>
+			<td><input id="memberId" type="text"></td>
+		</tr>
+		<tr>
+			<td>member_pw</td>
+			<td><input id="memberPw" type="text"></td>
+		</tr>
+	</table>
+	<button type="button" id="loginBtn">login</button>
+	<button type="button" id="joinBtn">회원가입</button> <!-- click : location.htef="" -->
+</body>
+<script>
+	$("#loginBtn").click(function(){
+		$.ajax({
+			url:"/puzzle/Login",
+			method:"POST",
+			data:{"memberId":$("#memberId").val(), "memberPw":$("#memberPw").val()},
+			success:function(){
+				console.log("로그인 요청 확인!");
+				location.href = "/puzzle/index.html";
+			},
+			error:function(){
+				console.log("로그인 요청 실패!");
+				alert("아이디나 비밀번호를 확인해주세요");
+			}
+		});
+	});
+	
+	$("#joinBtn").click(function(){
+		console.log("login에서 회원가입 화면으로 이동");
+		location.href = "/puzzle/join.html";
+	});
+</script>
+</html>

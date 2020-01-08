@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Insert title here</title>
+	<!-- 
+		Puzzle Game
+		
+		front
+		
+		index.html 로 돌아가는 처음으로 버튼과 로그아웃을 실행하는 로그아웃 버튼이 있음
+		아이디와 레벨과 경험치 출력
+		게임시작 버튼을 누르면 타이머가 실행되고 보스사진과 보스의 이름 보스의 체력, 랜덤으로 섞인 카드목록이 나옴
+		게임시작버튼은 한번 누르면 다시 누를수 없음
+		보스에게 데미지를 줄때마다 보스의 옆에 데미지 출력
+		제한시간은 180초, 보스의 체력은 300
+		보스의 이미지는 Mew, 카드의 뒷면은 ball, 카드의 앞면은 pic??(숫자) 사용
+		카드는 6x6 정사각혐으로 세팅
+		
+		back
+		
+		게임시작 버튼을 누르면 전체 카드의 뒷면을 3초간 보여준뒤 다시 뒤집고 게임시작
+		카드를 클릭시 카드를 뒤집음
+		카드를 두장 클릭시 카드를 비교하고 두장이 같으면 보스 HP를 10만큼 빼고 뒤집어진채로 고정
+		카드두장을 연속으로 맞추면 맞춘횟수만큼 기본데미지(10)에 곱셈 (콤보시스템)
+		두장의 카드가 다르면 카드를 다시 뒤집고 콤보가 끊기고 데미지도 들어가지않음
+		한 카드를 더블클릭시 경고문이 나오고 카드는 다시 뒤집어지고 성공취소 //더블클릭 방지
+		카드를 두장 클릭하면 카드가 확인되는동안 다른 카드를 클릭할수없음
+		카드가 모두 뒤집어지면(카드를 모두 사용하면) 새로운 카드목록을 불러오고 다시 섞음
+		게임이 끝나면 남은시간/100 만큼의 레벨과 남은시간%100 만큼의 경험치를 얻음
+		레벨업을 위한 경험치 필요량은 100
+		
+		타이머가 끝나면 게임오버 (실패)
+		경험치가 100이 넘으면 레벨을 1 올림
+		
+		보스의 체력이 0이되면 종료 후 report 테이블에 남은시간, 입력횟수, 클리어한 시간, 아이디를 저장하고
+		member 테이블에 경험치(memberGameExp)와 레벨(memberGameLevel) 업데이트
+	 -->
+<style>
+	table,td{border:1px solid gray;}
+	table {border-collapse:collapse;}
+	.card {
+		transition : transform .3s;
+		backface-visibility : hidden;
+	}
+	.panel {
+		position:relative;
+	}
+	.ball {
+		transform : rotateY(0deg);
+		z-index: 2;
+		position:absolute;
+		right:0;
+	}
+	.pic {
+		transform : rotateY(-180deg);
+		z-index: 1;
+		position:relative;
+	}
+	#bossImg {
+		position:relative;
+	}
+	
+	#bossDmg {
+		position:absolute;
+		top:300px;
+		left:300px;
+		z-index: 5;
+		font-size:x-large;
+	}
+</style>
+<script src="/puzzle/script/jquery-3.4.1.min.js"></script>
+</head>
+<body>
+	<!-- front end -->
+	<button type="button" onclick="location.href='/puzzle/index.html'">처음으로</button>&nbsp;&nbsp;<button type="button" id="logout">로그아웃</button>
+	<h1>Puzzle Game</h1>
+	<h3>ID-<span id="loginState"></span> Level-<span id="level"></span> Exp-<span id="exp"></span></h3>
+	<button type="button" id="gameStart">게임시작</button>
+	<div>
+		<table border="1" id = "main">
+		
+		</table>
+		
+		<div id="bossImg"></div><div id="bossDmg"></div>
+		
+		<table class="board">
+		
+		</table>
+	</div>
+</body>
+<script>
+	//카드목록
+	let model = ["ing.jpg", "ing.jpg",
+				 "pic01.jpg", "pic01.jpg",
+				 "pic02.jpg", "pic02.jpg",
+				 "pic03.jpg", "pic03.jpg",
+				 "pic04.jpg", "pic04.jpg",
+				 "pic05.jpg", "pic05.jpg",
+				 "pic06.jpg", "pic06.jpg",
+				 "pic07.jpg", "pic07.jpg",
+				 "pic08.jpg", "pic08.jpg",
+				 "pic09.jpg", "pic09.jpg",
+				 "pic10.png", "pic10.png",
+				 "pic11.jpg", "pic11.jpg",
+				 "pic12.jpg", "pic12.jpg",
+				 "pic13.jpg", "pic13.jpg",
+				 "pic14.jpg", "pic14.jpg",
+				 "pic15.jpg", "pic15.jpg",
+				 "pic16.png", "pic16.png",
+				 "mu.jpg", "mu.jpg",
+				];
+	//페이지를 불러오면 함수 실행
+	$(document).ready(function(){
+		
+		let loginState = null; //로그인 유무 판단
+		let level; //레벨
+		let exp; //경험치
+		let combo = 0;	//콤보
+		let bossHp = 300; //보스의 체력
+		
+		//로그인 유무판단 로그인이 안되었을경우 로그인페이지로 이동
+		$.ajax({
+			url:"/puzzle/GetSessionInfo",
+			method:"POST",
+			async:false, //동기요청
+			success:function(json) {
+				loginState = json;
+				console.log("sessionInfo : ", loginState);
+			}
+		});
+		if(loginState == null) {
+			location.href = "/puzzle/login.html";
+			return false;
+		}
+		
+		//로그아웃
+		$("#logout").click(function(){
+			$.ajax({
+				url:"/puzzle/Logout",
+				method:"POST",
+				success:function(){
+					console.log("로그아웃 성공!");
+					location.href="/puzzle/login.html";
+				}
+			});
+		});
+		
+		//로그인 id표시
+		$("#loginState").text(loginState);
+		
+		//로그인된 id의 레벨과 경험치를 가져와서 화면에 출력
+		$.ajax({
+			url: "/puzzle/GetLevel",
+			method : "POST",
+			data:{"memberId":loginState},
+			success:function(json){
+				console.log("Level과 exp 불러오기");
+				$(json).each(function(index, item){
+					$("#level").text(item.memberGameLevel);
+					$("#exp").text(item.memberGameExp);
+					level = item.memberGameLevel;
+					exp = item.memberGameExp;
+					console.log(level);
+					console.log(exp);
+				});
+			}
+		});
+		
+		//타이머 세팅 180초로 시작 1초마다 1씩 줄어듬 타이머가 0이되면 실패를 알리는 경고문 실행
+		let timerNum = 180;
+		
+		function timer(){
+			timerNum--;
+			$("#timer").text(timerNum);
+			if(timerNum == 0) {
+				clearInterval(timer);
+				console.log("실패!");
+				setTimeout(function(){alert("실패 !")}, 1000);
+				return;
+			}
+		}
+		//게임시작
+		$("#gameStart").click(function(){
+			clearInterval(timer);
+			setInterval(timer, 1000);
+			
+			//게임을 실행시 게임시작버튼을 다시 누를수 없음
+			//$("#gameStart").attr("disabled", true);
+			
+			//타이머와 보스의 이름, 보스의 체력을 출력
+			$("#main").empty();
+			$("#bossImg").empty();
+			$("#main").append("<thead><tr><th>시간</th><th>Boss Name</th><th>Boss HP</th></tr></thead><tbody><tr><td id='timer'>180</td><td>Mew</td><td id='bossHp'>0</td></tr></tbody>")
+			$("#bossImg").append("<input type='image' id='mew' src='/puzzle/image/mew.jpg'>")
+			$("#bossHp").text(bossHp);
+			
+			
+
+			//<--------------------------------------->
+			//모델 셔플 (카드를 섞음)
+			for(let i=0; i<100000; i++){
+				let ran = Math.floor(Math.random()*36);
+				let tmp = model[0];
+				model[0] = model[ran];
+				model[ran] = tmp
+			}
+			
+			//모델 출력 (섞은 카드를 table에 출력)
+			$("#board").empty();
+			$(model).each(function(index, item){
+				if(((index % 6) == 0)) {
+					console.log("if index : "+index);
+					$(".board").append("<tr></tr>");
+				}
+				$(".board").append("<td oncontextmenu='return false' ondragstart='return false' class='panel'><input class='pic card' type='image' src='/puzzle/image/"+item+"'><input class='ball card' type='image' src='/puzzle/image/ball.jpg'></td>");
+				$(".pic").attr("disabled", true); //카드 뒷면 클릭 방지
+			});
+			//<--------------------------------------->
+			
+			//게임을 시작하면 전체 카드의 뒷면을 3초간 보여줌
+			$(".panel").each(function(index, item){
+				$(".panel").find('input.ball').attr("disabled", true); //게임시작 전 클릭 방지
+				setTimeout(function(){
+					$(item).find('input.ball').css('z-index', '1');
+					$(item).find('input.ball').css('transform', 'rotateY(180deg)');
+					$(item).find('input.pic').css('z-index', '2');
+					$(item).find('input.pic').css('transform', 'rotateY(0deg)');
+				}, 500);
+				setTimeout(function(){
+					$(item).find('input.ball').css('z-index', '2');
+					$(item).find('input.ball').css('transform', 'rotateY(0deg)');
+					$(item).find('input.pic').css('z-index', '1');
+					$(item).find('input.pic').css('transform', 'rotateY(-180deg)');
+					$(".panel").find('input.ball').attr("disabled", false); //게임시작 전 클릭 방지 해제
+				}, 3500);
+			});
+			
+			
+			//게임 변수 설정
+			let state = 0; //첫번째 클릭과 두번째 클릭 구분
+			let success = 0; //성공 횟수
+			let onePic = null; //카드를 비교하기 위해 첫번째클릭의 밸류를 저장 
+			let twoPic = null; //카드를 비교하기 위해 두번째클릭의 밸류를 저장
+			let total = 0; //전체 클릭 횟수
+			let dmg = 10; //기본 데미지
+			
+			//셀을 클릭시
+			$(document).on("click", ".panel", function(){
+				
+				//클릭 횟수와 클릭구분자에 +1
+				total++;
+				state++;
+				
+				console.log("---click---");
+				console.log("total : ", total);
+				
+				//카드를 클릭시 해당 카드를 뒤집음
+				$(this).find('input.ball').css('z-index', '1');
+				$(this).find('input.ball').css('transform', 'rotateY(180deg)');
+				$(this).find('input.pic').css('z-index', '2');
+				$(this).find('input.pic').css('transform', 'rotateY(0deg)');
+				
+				//첫번째 클릭
+				if(1 == state) {
+					console.log("state 1");
+					console.log($(this).find('input.pic').attr("src"));
+					onePic = $(this);
+				//두번째 클릭
+				} else if(2 == state) {
+					$(".panel").find('input.ball').attr("disabled", true);
+					console.log("state 2");
+					console.log($(this).find('input.pic').attr("src"));
+					twoPic = $(this);
+					//첫번째 클릭의 밸류값과 두번째 클릭의 밸류값 비교
+					if($(onePic).find('input.pic').attr("src") == $(twoPic).find('input.pic').attr("src")) {
+						success++;
+						combo++;
+						console.log("콤보: "+combo);
+						//보스의 체력을 기본데미지 * 콤보 만큼 깎고 보스 체력 다시 출력
+						bossHp = bossHp-(dmg*combo);
+						$("#bossHp").text(bossHp);
+						//보스에게 들어간 데미지 출력
+						$("#bossDmg").text((dmg*combo)+ " Damage !");
+					
+						$('.panel').find('input.ball').attr("disabled", false); //다중클릭 방지 해제
+						
+						//더블클릭시 경고문을 실행시키고 올라간 성공회수와 보스의체력 콤보수를 되돌려놓고 다시 카드를 뒤집음
+						$(this).dblclick(function(){
+							console.log("더블클릭 확인");
+							alert("더블클릭 하지마세요");
+							if(success > 0){
+								success--;
+							}
+							if(bossHp < 300) {
+								$("#bossDmg").text("MISS !");
+								bossHp = bossHp+(dmg*combo);
+								console.log("bossHp : "+bossHp);
+								$("#bossHp").text(bossHp);
+							}
+							if(combo > 0){
+								combo--;
+							}
+							$(this).find('input.ball').css('z-index', '2');
+							$(this).find('input.ball').css('transform', 'rotateY(0deg)');
+							$(this).find('input.pic').css('z-index', '1');
+							$(this).find('input.pic').css('transform', 'rotateY(-180deg)');
+							
+							$('.panel').find('input.ball').attr("disabled", false); //다중클릭 방지 해제
+						});
+						console.log("success : ", success);
+						//성공회수가 전체카드/2 일때 (모든 카드를 뒤집었을때) 성공회수를 초기화한뒤 카드를 다시 섞고 다시 출력
+						if(success == model.length/2) {
+							success = 0;
+							// 모델 셔플
+							for(let i=0; i<100000; i++) {
+								let ran = Math.floor(Math.random()*model.length);
+								let tmp = model[0];
+								model[0] = model[ran];
+								model[ran] = tmp
+					 		}
+							// 모델 출력
+							$(".board").empty();
+							$(model).each(function(index, item){
+								if(((index % 6) == 0)) {
+									console.log("if index : "+index);
+									$(".board").append("<tr></tr>");
+								}
+								$(".board").append("<td oncontextmenu='return false' ondragstart='return false' class='panel'><input class='pic card' type='image' src='/puzzle/image/"+item+"'><input class='ball card' type='image' src='/puzzle/image/ball.jpg'></td>");
+								$(".pic").attr("disabled", true); //카드 뒷면 클릭 방지
+							});
+							//게임을 시작하면 전체 카드의 뒷면을 3초간 보여줌
+							$(".panel").each(function(index, item){
+								$(".panel").attr("disabled", true); //게임시작 전 클릭 방지
+								setTimeout(function(){
+									$(item).find('input.ball').css('z-index', '1');
+									$(item).find('input.ball').css('transform', 'rotateY(180deg)');
+									$(item).find('input.pic').css('z-index', '2');
+									$(item).find('input.pic').css('transform', 'rotateY(0deg)');
+								}, 500);
+								setTimeout(function(){
+									$(item).find('input.ball').css('z-index', '2');
+									$(item).find('input.ball').css('transform', 'rotateY(0deg)');
+									$(item).find('input.pic').css('z-index', '1');
+									$(item).find('input.pic').css('transform', 'rotateY(-180deg)');
+									$(".panel").find('input.ball').attr("disabled", false); //게임시작 전 클릭 방지 해제
+								}, 3500);
+							});
+						}
+						//보스의 체력이 0이될시 로그인한 memberid에 경험치와 레벨 업데이트, 클리어 기록을 저장
+						if(bossHp <= 0){
+							bossHp = 300;
+							clearInterval(timer);
+							console.log("보스 격퇴!");
+							exp = exp + timerNum;
+							if(exp/100 > 0){
+								level = level + parseInt(exp/100);
+								exp = exp % 100 ;
+							}
+							$.ajax({
+								url:"/puzzle/addReport",
+								method:"POST",
+								data:{"timer":(180-timerNum), "count":total, "loginState":loginState},
+								success:function(){
+									console.log("addReport 요청 확인!");
+									console.log("게임종료 시간("+(180-timerNum)+"), 횟수("+total+"), 경험치("+timerNum+")");
+									setTimeout(function(){alert("축하합니다 보스를 격퇴했습니다!")}, 500);
+									setTimeout(function(){alert("게임종료 시간("+(180-timerNum)+"), 횟수("+total+"), 경험치("+timerNum+")")}, 500);
+								}
+							});
+							$.ajax({
+								url:"/puzzle/InsertExp",
+								method:"POST",
+								data:{"exp":exp, "level":level, "loginState":loginState},
+								success:function(){
+									console.log(exp+" 경험치 획득");
+								}
+							});
+							return;
+						} 
+						
+					//뒤집은 두장의 카드가 다를시 콤보를 초기화, 보스에게 준 데미지 MISS 출력, 카드두장을 다시 뒤집음
+					} else {
+						$(".panel").find('input.ball').attr("disabled", true);
+						console.log("카드 매칭 실패");
+						combo = 0;
+						$("#combo").text(combo);
+						$("#bossDmg").text("MISS !");
+						setTimeout(function(){
+							$(onePic).find('input.ball').css('z-index', '2');
+							$(onePic).find('input.ball').css('transform', 'rotateY(0deg)');
+							$(onePic).find('input.pic').css('z-index', '1');
+							$(onePic).find('input.pic').css('transform', 'rotateY(-180deg)');
+							
+							$(twoPic).find('input.ball').css('z-index', '2');
+							$(twoPic).find('input.ball').css('transform', 'rotateY(0deg)');
+							$(twoPic).find('input.pic').css('z-index', '1');
+							$(twoPic).find('input.pic').css('transform', 'rotateY(-180deg)');
+							
+							$(onePic).find('input.ball').attr("disabled", false); //더블클릭 방지 해제
+							$(twoPic).find('input.ball').attr("disabled", false); //더블클릭 방지 해제
+							
+							$(".panel").find('input.ball').attr("disabled", false);
+						}, 300);
+					}
+					//첫번째클릭과 두번째클릭만을 확인하기 위해 클릭회수 초기화
+					state = 0;
+				}
+			});
+		});
+	});
+</script>
+</html>

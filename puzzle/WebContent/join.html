@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Insert title here</title>
+<script src="/puzzle/script/jquery-3.4.1.min.js"></script>
+</head>
+<body>
+	<h1>join</h1>
+	<a href="/puzzle/index.html">처음으로</a>
+	<table>
+		<tr>
+			<td>member_id</td>
+			<td><input id="memberId" type="text"></td>
+		</tr>
+		<tr>
+			<td>member_pw</td>
+			<td><input id="memberPw" type="text"></td>
+		</tr>
+	</table>
+	<button id="joinBtn">join</button>
+</body>
+<script>
+	$("#joinBtn").click(function(){
+		$.ajax({
+			url:"/puzzle/join",
+			method:"POST",
+			data:{"memberId":$("#memberId").val(), "memberPw":$("#memberPw").val()},
+			success:function(){
+				console.log("회원가입 요청 확인!");
+				location.href="/puzzle/index.html";
+			}
+		});
+	});
+</script>
+</html>

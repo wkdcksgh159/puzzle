@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Insert title here</title>
+<script src="/puzzle/script/jquery-3.4.1.min.js"></script>
+</head>
+<body>
+	<h1>closeByMember</h1>
+	<a href="/puzzle/index.html">처음으로</a>
+	<table>
+		<tr>
+			<td>member_id</td>
+			<td><input id="memberId" type="text" value="" readonly="readonly"></td>
+		</tr>
+		<tr>
+			<td>비밀번호 확인</td>
+			<td><input id="memberPw" type="text"></td>
+		</tr>
+	</table>
+	<button type="button" id="closeByMember">회원탈퇴</button>
+</body>
+<script>
+	$(document).ready(function(){
+		//sessionInfo값을 요청 동기요청사용!
+		
+		let loginState = null;
+		$.ajax({
+			url:"/puzzle/GetSessionInfo",
+			method:"POST",
+			async:false, //동기요청
+			success:function(json) {
+				loginState = json;
+				console.log("sessionInfo : ", loginState);
+			}
+		});
+		if(loginState == null) {
+			location.href = "/puzzle/login.html";
+			return false;
+		}
+		
+		$("#memberId").val(loginState);
+		
+		$("#closeByMember").click(function(){
+			$.ajax({
+				url:"/puzzle/closeByMember",
+				method:"POST",
+				data:{"memberId":$("#memberId").val(), "memberPw":$("#memberPw").val()},
+				success:function(json){
+					let check = json;
+					console.log("회원탈퇴 요청 확인!");
+					if(check == 0) {
+						alert("비밀번호를 확인해주십시오");
+					} else {
+						confirm("회원탈퇴를 진행하시겠습니까?");
+						location.href = "/puzzle/login.html";
+					}
+				}
+			});
+		});
+	});
+</script>
+</html>

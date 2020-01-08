@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Insert title here</title>
+<script src="/puzzle/script/jquery-3.4.1.min.js"></script>
+</head>
+<body>
+	<!-- 
+		//전체 top 10 
+		이달의 top 10
+		오늘의 top 10
+		
+		//로그인여부
+		
+		//로그인
+		//회원가입
+		
+		//로그아웃
+		//my report list
+		//비밀번호수정
+		
+		?회원탈퇴
+		
+		SELECT * FROM report ORDER BY timer ASC, count ASC
+		[Top 10] limit 10
+		
+		[Today Top 10] WHERE 날짜함수(report_date) == 날짜함수(now()) limit 10
+		
+		[my report list]WHERE member_id=?
+	 -->
+	<button type="button" id="alltopten">전체 Top 10</button>
+	<button type="button" id="monthtopten">이달의 Top 10</button>
+	<button type="button" id="todaytopten">오늘의 Top 10</button>
+	<table id="allbutton">
+	</table>
+	
+	<h2 id="title"></h2>
+	<table border="1">
+		<thead>
+			<tr>
+				<th>report_id</th>
+				<th>member_id</th>
+				<th>import_date</th>
+				<th>count</th>
+				<th>timer</th>
+			</tr>
+		</thead>
+		<tbody id="list">
+		</tbody>
+	</table>
+</body>
+<script>
+	$(document).ready(function(){
+		//sessionInfo값을 요청 동기요청사용!
+		
+		let loginState = null;
+		$.ajax({
+			url:"/puzzle/GetSessionInfo",
+			method:"POST",
+			async:false, //동기요청
+			success:function(json) {
+				loginState = json;
+				console.log("sessionInfo : ", loginState);
+			}
+		});
+		if(loginState == null) {
+			$("#allbutton").empty();
+			$("#allbutton").append("<tr><td><button type='button' id='login'>로그인</button></td><td><button type='button' id='join'>회원가입</button></td></tr>");
+		} else {
+			$("#allbutton").empty();
+			$("#allbutton").append("<tr><td><button type='button' id='puzzle'>게임시작</button></td><td><button type='button' id='logout'>로그아웃</button></td><td><button type='button' id='myList'>my report list</button></td><td><button type='button' id='pwUpdate'>비밀번호수정</button></td><td><button type='button' id='closeByMember'>회원탈퇴</button></td><td>");
+		}
+		
+		//마이리스트출력
+		$("#myList").click(function(){
+			$.ajax({
+				url:"/puzzle/myList",
+				method:"POST",
+				data:{"loginState":loginState},
+				success:function(json){
+					console.log("myList 요청 성공!");
+					console.log(json);
+					$("#list").empty();
+					$(json).each(function(index, item){
+						temp = "<tr><td>"+item.reportId+"</td><td>"+item.memberId+"</td><td>"+item.reportDate+"</td><td>"+item.count+"</td><td>"+item.timer+"</td></tr>";
+						$("#list").append(temp);
+						$("#title").empty();
+						$("#title").text("내 기록");
+					});
+				}
+			});
+		});
+	});
+	//전체 순위 출력 (10위까지)
+	$("#alltopten").click(function(){
+		$.ajax({
+			url:"/puzzle/topten",
+			method:"POST",
+			success:function(json){
+				console.log("alltopten 요청 성공!");
+				console.log(json);
+				$("#list").empty();
+				$(json).each(function(index, item){
+					temp = "<tr><td>"+item.reportId+"</td><td>"+item.memberId+"</td><td>"+item.reportDate+"</td><td>"+item.count+"</td><td>"+item.timer+"</td></tr>";
+					$("#list").append(temp);
+					$("#title").empty();
+					$("#title").text("전체 순위 TOP10");
+				});
+			}
+		});
+	});
+	
+	//이번달 순위 출력 (10위까지)
+	$("#monthtopten").click(function(){
+		$.ajax({
+			url:"/puzzle/month",
+			method:"POST",
+			success:function(json){
+				console.log("monthtopten 요청 성공!");
+				console.log(json);
+				$("#list").empty();
+				$(json).each(function(index, item){
+					temp = "<tr><td>"+item.reportId+"</td><td>"+item.memberId+"</td><td>"+item.reportDate+"</td><td>"+item.count+"</td><td>"+item.timer+"</td></tr>";
+					$("#list").append(temp);
+					$("#title").empty();
+					$("#title").text("이달의 순위 TOP10");
+				});
+			}
+		});
+	});
+	
+	//오늘의 순위 출력 (10위까지)
+	$("#todaytopten").click(function(){
+		$.ajax({
+			url:"/puzzle/today",
+			method:"POST",
+			success:function(json){
+				console.log("todaytopten 요청 성공!");
+				console.log(json);
+				$("#list").empty();
+				$(json).each(function(index, item){
+					temp = "<tr><td>"+item.reportId+"</td><td>"+item.memberId+"</td><td>"+item.reportDate+"</td><td>"+item.count+"</td><td>"+item.timer+"</td></tr>";
+					$("#list").append(temp);
+					$("#title").empty();
+					$("#title").text("오늘의 순위 TOP10");
+				});
+			}
+		});
+	});
+	
+	//로그인
+	$(document).on("click", "#login", function(){
+		console.log("index에서 로그인 화면으로 이동");
+		location.href = "/puzzle/login.html";
+	});
+	
+	//회원가입
+	$(document).on("click", "#join", function(){
+		console.log("index에서 회원가입 화면으로 이동");
+		location.href = "/puzzle/join.html";
+	});
+	
+	//게임시작
+	$(document).on("click", "#puzzle", function(){
+		console.log("index에서 게임시작 화면으로 이동");
+		location.href = "/puzzle/puzzle.html";
+	});
+	
+	//로그아웃
+	$(document).on("click", "#logout", function(){
+		$.ajax({
+			url:"/puzzle/Logout",
+			method:"POST",
+			success:function(){
+				console.log("로그아웃 성공!");
+				location.href="/puzzle/index.html";
+			}
+		});
+	});
+	
+	//비밀번호 수정
+	$(document).on("click", "#pwUpdate", function(){
+		console.log("index에서 비밀번호수정 화면으로 이동");
+		location.href = "/puzzle/pwUpdate.html";
+	});
+	
+	//회원탈퇴
+	$(document).on("click", "#closeByMember", function(){
+		console.log("index에서 회원탈퇴 화면으로 이동");
+		location.href = "/puzzle/closeByMember.html";
+	});
+</script>
+</html>
